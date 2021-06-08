@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Question</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+<body>
+    <nav class="navbar navbar-light bg-light border mb-3">
+        <span class="navbar-brand mr-auto">Welcome {{logged_user.username}}</span>
+        <a class="nav-link" href="/dashboard">Home</a>
+        <a class="nav-link" href="/users/logout">Logout</a>
+    </nav>
+    <div class="container col-6">
+        <div class="d-flex align-items-center">
+            <h2 class="mr-auto">{{question.question}}</h2>
+            {% if logged_user.id == question._asker_id%}
+            {% if not question.answered %}
+            <a class="btn text-secondary" href="/questions/{{question.id}}/edit">Edit</a>
+            {% endif %}
+            <a class="btn btn-outline-danger ml-2" href="/questions/{{question.id}}/delete">Delete</a>
+            {% endif %}
+        </div>
+        <p class="p-3 border rounded">{{question.description or "No Description"}}</p>
+        <p class="text-right text-muted">asked by: {{question.asker.username}} on {{question.created_at}}</p>
+        {% if logged_user.id != question._asker_id and not question.answered %}
+        <form action="/questions/{{question.id}}/answer" method="POST">
+            <textarea class="form-control mb-3" placeholder="Submit an answer" name="answer"></textarea>
+            {% for error in get_flashed_messages(category_filter=["Answer.answer"]) %}
+                <p class="alert alert-danger">{{error}}</p>
+            {% endfor %}
+            <button class="btn btn-secondary">Answer</button>
+        </form>
+        {% elif question.answered %}
+        <p class="text-success">Approved answer:</p>
+        <p class="border border-success p-3 rounded mt-3">{{question.selected_answer.answer}}</p>
+        <p class="text-right text-muted">Submitted by: {{question.selected_answer.answerer.username}} on {{question.selected_answer.created_at}}</p>
+        {% endif %}
+        {% for answer in question.answers %}
+            <div class="d-flex align-items-center">
+                <p class="border p-3 rounded mt-3 col-12 mr-3">{{answer.answer}}</p>
+                {% if answer._answerer_id == logged_user.id %}
+                <a href="/questions/{{question.id}}/delete-answer/{{answer.id}}" class="btn btn-danger">Delete</a>
+                {% elif question._asker_id == logged_user.id and not question.answered %}
+                <a href="/questions/{{question.id}}/approve-answer/{{answer.id}}" class="btn btn-info">Approve</a>
+                {% endif %}
+            </div>
+            <p class="text-right text-muted">Submitted by: {{answer.answerer.username}} on {{answer.created_at}}</p>
+        {% endfor %}
+    </div>
+</body>
+</html>

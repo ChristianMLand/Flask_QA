@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+<body>
+    <nav class="navbar navbar-light bg-light border mb-3">
+        <span class="navbar-brand mr-auto">Welcome {{logged_user.username}}</span>
+        <a class="nav-link" href="/users/logout">Logout</a>
+    </nav>
+    <div class="container">
+        <div class="d-flex align-items-center">
+            <h2 class="mr-auto">Unanswered Questions</h2>
+            <a href="/questions/ask">Ask question</a>
+        </div>
+        <table class="table table-hover table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Question asked</th>
+                    <th>Asked by</th>
+                    <th>Date Asked</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for question in unanswered_questions %}
+                <tr>
+                    <td><a href="/questions/{{question.id}}">{{question.question}}</a></td>
+                    <td>{{question.asker.username}}</td>
+                    <td>{{question.created_at}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="container">
+        <h2>Answered Questions</h2>
+        <table class="table table-hover table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Question asked</th>
+                    <th>Asked by</th>
+                    <th>Date Answered</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for question in answered_questions %}
+                <tr>
+                    <td><a href="/questions/{{question.id}}">{{question.question}}</a></td>
+                    <td>{{question.asker.username}}</td>
+                    <td>{{question.updated_at}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

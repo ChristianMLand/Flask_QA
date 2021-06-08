@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Question</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+<body>
+    <nav class="navbar navbar-light bg-light border mb-3">
+        <span class="navbar-brand mr-auto">Welcome {{logged_user.username}}</span>
+        <a class="nav-link" href="/dashboard">Home</a>
+        <a class="nav-link" href="/users/logout">Logout</a>
+    </nav>
+    <div class="container text-center col-6">
+        <h2>Edit your Question</h2>
+        <form action="/questions/{{question.id}}/update" method="POST">
+            <input placeholder="Question" value="{{question.question}}" class="form-control mb-2" type="text" name="question">
+            {% for error in get_flashed_messages(category_filter=["Question.question"]) %}
+                <p class="alert alert-danger">{{error}}</p>
+            {% endfor %}
+            <textarea placeholder="Description" class="form-control mb-2" rows="6" name="description">{{question.description}}</textarea>
+            <button class="btn btn-secondary">Save changes</button>
+        </form>
+    </div>
+</body>
+</html>
