@@ -281,7 +281,7 @@ class MtM:
         -------
             None if successful or False if query failed
         """
-        query = f"DELETE FROM `{self.middle}` WHERE {'AND '.join(f'`{self.left.table}_id`={self.left.id} AND `{self.right.table}_id`={item.id} ' for item in items)}"
+        query = f"DELETE FROM `{self.middle}` WHERE `{self.left.table}_id`={self.left.id} AND `{self.right.table}_id` IN ({', '.join(item.id for item in items)})"
         return connectToMySQL(db).query_db(query)
 
     def retrieve(self):
