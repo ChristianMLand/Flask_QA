@@ -2,7 +2,7 @@ from flask import flash
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app import db
 
-class Schema():
+class Schema:
     '''
     A class to that holds methods for basic sql queries.
 
@@ -11,22 +11,6 @@ class Schema():
 
     Should only ever be extended and not instantiated on its own.
     '''
-    @staticmethod
-    def format_data(columns):
-        """
-        Formats given data in a way that is safe to pass into a sql query without risk of sql injection.
-
-        Parameters
-        ----------
-            columns (list[str]): List of column/variable names.
-
-        Returns
-        -------
-            Tuple containing a list of escaped column names and a list of formatted variable names.
-        """
-        cols = [f'`{col}`' for col in columns]
-        vals = [f'%({col})s' for col in columns]
-        return cols,vals
 #-------------------Create---------------------#
     @classmethod
     def create(cls, **data):
@@ -47,8 +31,7 @@ class Schema():
         -------
             Id of the newly created row or False if query failed.
         '''
-        cols,vals = cls.format_data(data.keys())
-        query = f"INSERT INTO `{cls.table}` ({', '.join(cols)}) VALUES ({', '.join(vals)})"
+        query = f"INSERT INTO `{cls.table}` ({', '.join(f'`{col}`' for col in data.keys())}) VALUES ({', '.join(f'%({col})s' for col in data.keys())})"
         return connectToMySQL(db).query_db(query,data)
 #-------------------Retrieve-------------------#
     @classmethod
@@ -74,8 +57,7 @@ class Schema():
         -------
             List of class instances created from the matching rows in the database.
         '''
-        cols,vals = cls.format_data(data.keys())
-        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' {col}={val}' for col,val in zip(cols,vals)) if data else ''}"
+        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''}"
         return [cls(**item) for item in  connectToMySQL(db).query_db(query,data)]
 
     @classmethod
@@ -101,34 +83,38 @@ class Schema():
         -------
             List of class instances created from the matching rows in the database or False if query failed.
         '''
-        cols,vals = cls.format_data(data.keys())
-        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' {col}={val}' for col,val in zip(cols,vals)) if data else ''} LIMIT 1"
+        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''} LIMIT 1"
         result = connectToMySQL(db).query_db(query,data)
         if result:
             result = cls(**result[0])
         return result
 #-------------------Update---------------------#
     @classmethod
-    def update(cls,id, **data):
+    def update(cls,id=None,**data):#TODO allow for filter dict paramater instead of id
         '''
         Updates the target instance in the database with the given data.
 
         Example usages:
         --------------
+            ``User.update(1,name="Joe",age=24) -> updates user with id of 1 to have name of "Joe" and age of "24"
+
+            ``User.update(name="John") -> updates ALL users to have the name "John"
+
             ``my_user.update(name="Joe",age=24) -> updates my_user to now have the name of "Joe" and age of 24``
 
             ``my_user.update(**request.form) -> updates my_user based on the data recieved from the form``
 
         Parameters
         ----------
+            id (str) : Id of instance to update (implicit if called on instance)
+
             data (**str) : Key word arguments for each of the column names and the new values to update with.
 
         Returns
         -------
             None if successful or False if query failed.
         '''
-        cols,vals = cls.format_data(data.keys())
-        query = f"UPDATE `{cls.table}` SET {', '.join(f'{col}={val}' for col,val in zip(cols,vals))} WHERE id={id}"
+        query = f"UPDATE `{cls.table}` SET {', '.join(f'`{col}`=%({col})s' for col in data.keys())} {'WHERE `id`='+id if id else ''}"
         return connectToMySQL(db).query_db(query,data)
 #-------------------Delete---------------------#
     @classmethod
@@ -142,6 +128,8 @@ class Schema():
 
             ``User.delete(name="John") -> deletes all users with the name "John"``
 
+            ``my_user.delete() -> deletes user based on instance``
+
         Parameters
         ----------
             data (**str) : Key word arguments for each of the column names and the values to try and match.
@@ -150,8 +138,7 @@ class Schema():
         -------
             None if successful or False if query failed.
         '''
-        cols,vals = cls.format_data(data.keys())
-        query = f"DELETE FROM `{cls.table}` WHERE {' AND '.join(f'{col}={val}' for col,val in zip(cols,vals))}"
+        query = f"DELETE FROM `{cls.table}` WHERE {' AND '.join(f'`{col}`=%({col})s' for col in data.keys())}"
         return connectToMySQL(db).query_db(query,data)
 #------------------Validate--------------------#
     @classmethod
@@ -182,7 +169,7 @@ class Schema():
                 if not valid(val,**kwargs):
                     flash(msg,f"{cls.__name__}.{field}")
                     is_valid = False
-                    break#currently limits to one validation per field at a time but could be changed
+                    # break#limits to one validation per field at a time
         return is_valid
 
     @classmethod
@@ -192,7 +179,8 @@ class Schema():
 
         The method below the decorator should be named the exact same
         as the field you are trying to validate and should return a boolean
-        which will be used to determine if the field is valid or not.
+        which will be used to determine if the field is valid or not. Flashed
+        message categories will be accessed as "Class.field" format.
 
         Parameters
         ----------
@@ -224,7 +212,8 @@ class Schema():
 class MtM:
     def __init__(self, left, right, middle):
         '''
-        Create an instance of the MtM class.
+        Create an instance of the MtM class. Foreign key names should be
+        the table name lowercase and pluralized to work correctly (currently)
 
         Example usages:
         --------
@@ -263,7 +252,7 @@ class MtM:
         query = f"INSERT INTO `{self.middle}` (`{self.left.table}_id`,`{self.right.table}_id`) VALUES {', '.join(f'({self.left.id},{item.id})' for item in items)}"
         return connectToMySQL(db).query_db(query)
 
-    def remove(self, *items):
+    def remove(self,*items):
         """
         Removes relationship from given instance and any instances passed in as arguments.
 
@@ -281,7 +270,8 @@ class MtM:
         -------
             None if successful or False if query failed
         """
-        query = f"DELETE FROM `{self.middle}` WHERE `{self.left.table}_id`={self.left.id} AND `{self.right.table}_id` IN ({', '.join(item.id for item in items)})"
+        print(items)
+        query = f"DELETE FROM `{self.middle}` WHERE `{self.left.table}_id`={self.left.id} AND `{self.right.table}_id` IN ({', '.join(str(item.id) for item in items)})"
         return connectToMySQL(db).query_db(query)
 
     def retrieve(self):
