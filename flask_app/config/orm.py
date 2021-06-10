@@ -114,7 +114,7 @@ class Schema:
         -------
             None if successful or False if query failed.
         '''
-        query = f"UPDATE `{cls.table}` SET {', '.join(f'`{col}`=%({col})s' for col in data.keys())} {'WHERE `id`='+id if id else ''}"
+        query = f"UPDATE `{cls.table}` SET {', '.join(f'`{col}`=%({col})s' for col in data.keys())} {f'WHERE `id`={id}' if id else ''}"
         return connectToMySQL(db).query_db(query,data)
 #-------------------Delete---------------------#
     @classmethod
@@ -264,7 +264,7 @@ class MtM:
 
         Parameters
         ----------
-        items (Schema): Items to have relationship with the given instance removed.
+            items (Schema): Items to have relationship with the given instance removed.
 
         Returns
         -------
@@ -274,23 +274,28 @@ class MtM:
         query = f"DELETE FROM `{self.middle}` WHERE `{self.left.table}_id`={self.left.id} AND `{self.right.table}_id` IN ({', '.join(str(item.id) for item in items)})"
         return connectToMySQL(db).query_db(query)
 
-    def retrieve(self):
+    def retrieve(self,**data):
         """
-        Retrieves all instances with a relationship to the given instance.
+        Retrieves all instances with a relationship to the given instance that match the given data.
 
-        SELECT \`right_table\`.* FROM \`right_table\` JOIN \`middle_table\` ON \`right_table_id\` = \`right_table\`.id WHERE \`left_table_id\` = %(id)s;
-
-        Does not take any parameters.
+        Parameters
+        ----------
+        data (**str) : Key word arguments for each of the column names and the values to try and match.
 
         Example usages:
         -------------
-            ``User.favorites.retrieve() -> retrieves all instances with a relationship to the user table via the favorites table``
+            ``user1.replies.retrieve() -> retrieves all the replies associated with a user``
+
+            ``post2.replies.retrieve(users_id=1) -> retrieves all replies on a post that were made by the user with an id of 1
 
         Returns
         -------
             List of instances with a relationship to the given instance if successful or False if query failed
         """
         query = f"SELECT `{self.right.table}`.* FROM `{self.right.table}` JOIN `{self.middle}` ON `{self.right.table}_id` = `{self.right.table}`.id WHERE `{self.left.table}_id`={self.left.id}"
+        if data:
+            for col in data.keys():
+                query += f" AND `{col}`=%({col})s"
         results = connectToMySQL(db).query_db(query)
         if results:
             return [self.right(**item) for item in results]
