@@ -11,6 +11,15 @@ class Schema:
 
     Should only ever be extended and not instantiated on its own.
     '''
+    @classmethod
+    def order_by(cls,col="id",desc=False,rand=False):
+        config = {
+            "order_by" : col,
+            "desc" : desc,
+            "rand" : rand
+        }
+        setattr(cls,"config",config)
+        return cls
 #-------------------Create---------------------#
     @classmethod
     def create(cls, **data):
@@ -57,7 +66,11 @@ class Schema:
         -------
             List of class instances created from the matching rows in the database.
         '''
-        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''}"
+        config = getattr(cls,'config')
+        if config:
+            config = f"ORDER BY {'RAND()' if config['rand'] else config['col']} {'DESC' if config['desc'] else 'ASC'}"
+        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''} {config if config else ''}"
+        delattr(cls,"config")
         return [cls(**item) for item in  connectToMySQL(db).query_db(query,data)]
 
     @classmethod
@@ -83,10 +96,14 @@ class Schema:
         -------
             List of class instances created from the matching rows in the database or False if query failed.
         '''
-        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''} LIMIT 1"
+        config = getattr(cls,'config')
+        if config:
+            config = f"ORDER BY {config['rand'] if config['rand'] else config['col']} {'DESC' if config['desc'] else 'ASC'}"
+        query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''} {config if config else ''} LIMIT 1"
         result = connectToMySQL(db).query_db(query,data)
         if result:
             result = cls(**result[0])
+        delattr(cls,"config")
         return result
 #-------------------Update---------------------#
     @classmethod
