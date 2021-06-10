@@ -18,7 +18,7 @@
             <h2 class="mr-auto">{{question.question}}</h2>
             {% if logged_user.id == question._asker_id%}
             {% if not question.answered %}
-            <a class="btn text-secondary" href="/questions/{{question.id}}/edit">Edit</a>
+            <a class="btn btn-outline-secondary" href="/questions/{{question.id}}/edit">Edit</a>
             {% endif %}
             <a class="btn btn-outline-danger ml-2" href="/questions/{{question.id}}/delete">Delete</a>
             {% endif %}
@@ -42,9 +42,9 @@
             <div class="d-flex align-items-center">
                 <p class="border p-3 rounded mt-3 col-12 mr-3">{{answer.answer}}</p>
                 {% if answer._answerer_id == logged_user.id %}
-                <a href="/questions/{{question.id}}/delete-answer/{{answer.id}}" class="btn btn-danger">Delete</a>
+                <a href="/questions/{{question.id}}/delete-answer/{{answer.id}}" class="btn btn-outline-danger">Delete</a>
                 {% elif question._asker_id == logged_user.id and not question.answered %}
-                <a href="/questions/{{question.id}}/approve-answer/{{answer.id}}" class="btn btn-info">Approve</a>
+                <a href="/questions/{{question.id}}/approve-answer/{{answer.id}}" class="btn btn-outline-success">Approve</a>
                 {% endif %}
             </div>
             <p class="text-right text-muted">Submitted by: {{answer.answerer.username}} on {{answer.created_at}}</p>
