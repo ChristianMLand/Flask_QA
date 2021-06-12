@@ -227,26 +227,41 @@ class Schema:
         return self.id == other.id
 
 class MtM:
-    def __init__(self, left, right, middle):
+    def __init__(self,*args,**kwargs):
         '''
         Create an instance of the MtM class. Foreign key names should be
         the table name lowercase and pluralized to work correctly (currently)
 
         Example usages:
         --------
-            ``self.favorites = MtM(left = self, right = User, middle = "favorites") -> creates a many-to-many relationship with User called favorites``
+            ``self.likes = Mtm(self,User,"likes") -> -> creates a many-to-many relationship with User called likes``
+
+            ``self.friends = MtM(user=self,friend=User,"friends") -> creates a many-to-many relationship with User called friends``
 
         Attributes:
         ----------
-            left (Schema): Instance of class representing a given row in a table.
+            left (Schema): Instance of class representing a given row in a table. Can give an optional key-name if column name is not the default in your table.
             
-            right (Class): Class associated with the table to create the relationship with.
+            right (Class): Class associated with the table to create the relationship with. Can give an optional key-name if column name is not the default in your table.
             
             middle (str): Table name of the middle table in the relationship.
         '''
-        self.left = left
-        self.right = right
-        self.middle = middle
+        self._collection = None
+        items = list(kwargs.items())
+        if len(items) == 3:
+            self.left_name = items[0][0]
+            self.left = items[0][1]
+            self.right_name = items[1][0]
+            self.right = items[1][1]
+            self.middle = items[2][1]
+        elif len(args) == 3:
+            self.left_name = args[0].table
+            self.left = args[0]
+            self.right_name = args[1].table
+            self.right = args[1]
+            self.middle = args[2]
+        else:
+            raise AttributeError("MtM takes either 3 arguments or 3 key-word arguments!")
 
     def add(self, *items):#TODO maybe allow for passing in ids instead of class instances
         """
@@ -266,7 +281,10 @@ class MtM:
         -------
             Id of the new relationship created in the database if successful or False if query failed.
         """
-        query = f"INSERT INTO `{self.middle}` (`{self.left.table}_id`,`{self.right.table}_id`) VALUES {', '.join(f'({self.left.id},{item.id})' for item in items)}"
+        for item in items:
+            if not isinstance(item,self.right):
+                raise TypeError(f"Item to add must be of type {self.right.__name__}!")
+        query = f"INSERT INTO `{self.middle}` (`{self.left_name}_id`,`{self.right_name}_id`) VALUES {', '.join(f'({self.left.id},{item.id})' for item in items)}"
         return connectToMySQL(db).query_db(query)
 
     def remove(self,*items):
@@ -281,44 +299,47 @@ class MtM:
 
         Parameters
         ----------
-            items (Schema): Items to have relationship with the given instance removed.
+        items (Schema): Items to have relationship with the given instance removed.
 
         Returns
         -------
             None if successful or False if query failed
         """
-        query = f"DELETE FROM `{self.middle}` WHERE `{self.left.table}_id`={self.left.id} AND `{self.right.table}_id` IN ({', '.join(str(item.id) for item in items)})"
+        for item in items:
+            if not isinstance(item,self.right):
+                raise TypeError(f"Item to remove must be of type {self.right.__name__}!")
+        query = f"DELETE FROM `{self.middle}` WHERE `{self.left_name}_id`={self.left.id} AND `{self.right_name}_id` IN ({', '.join(str(item.id) for item in items)})"
         return connectToMySQL(db).query_db(query)
 
-    def retrieve(self,**data):
-        """
-        Retrieves all instances with a relationship to the given instance that match the given data.
-
-        Parameters
-        ----------
-        data (**str) : Key word arguments for each of the column names and the values to try and match.
-
-        Example usages:
-        -------------
-            ``user1.replies.retrieve() -> retrieves all the replies associated with a user``
-
-            ``post2.replies.retrieve(users_id=1) -> retrieves all replies on a post that were made by the user with an id of 1
-
-        Returns
-        -------
-            List of instances with a relationship to the given instance if successful or False if query failed
-        """
-        query = f"SELECT `{self.right.table}`.* FROM `{self.right.table}` JOIN `{self.middle}` ON `{self.right.table}_id` = `{self.right.table}`.id WHERE `{self.left.table}_id`={self.left.id}"
-        if data:
-            for col in data.keys():
-                query += f" AND `{col}`=%({col})s"
+    def __retrieve__(self):#custom dunder method, not actually overriding anything here
+        query = f"SELECT `{self.right_name}`.* FROM `{self.right.table}` AS {self.right_name} JOIN `{self.middle}` ON `{self.right_name}_id` = `{self.right_name}`.id WHERE `{self.left_name}_id`={self.left.id}"
         results = connectToMySQL(db).query_db(query)
         if results:
             return [self.right(**item) for item in results]
-        return results
+        return []
     
     def __repr__(self):#more readable representation
-        return f"<MtM obj: table={self.middle}>"
+        return f"<MtM obj: table={self.middle}, collection=({', '.join(str(item) for item in self)})>"
+
+    def __iter__(self):#allows for iteration
+        if not isinstance(self._collection,list):
+            self._collection = self.__retrieve__()
+        self.n = 0
+        self.max = len(self)
+        return self
+
+    def __next__(self):#allows for iteration
+        if self.n < self.max:
+            result = self._collection[self.n]
+            self.n += 1
+            return result
+        else:
+            raise StopIteration
+
+    def __len__(self):#allows for checking length
+        if not isinstance(self._collection,list):
+            self._collection = self.__retrieve__()
+        return len(self._collection)
 
 def table(table):
     '''
