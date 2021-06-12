@@ -66,11 +66,11 @@ class Schema:
         -------
             List of class instances created from the matching rows in the database.
         '''
-        config = getattr(cls,'config')
+        config = getattr(cls,'config',None)
         if config:
             config = f"ORDER BY {'RAND()' if config['rand'] else config['col']} {'DESC' if config['desc'] else 'ASC'}"
+            delattr(cls,"config")
         query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''} {config if config else ''}"
-        delattr(cls,"config")
         return [cls(**item) for item in  connectToMySQL(db).query_db(query,data)]
 
     @classmethod
@@ -96,14 +96,14 @@ class Schema:
         -------
             List of class instances created from the matching rows in the database or False if query failed.
         '''
-        config = getattr(cls,'config')
+        config = getattr(cls,'config',None)
         if config:
             config = f"ORDER BY {config['rand'] if config['rand'] else config['col']} {'DESC' if config['desc'] else 'ASC'}"
+            delattr(cls,"config")
         query = f"SELECT * FROM `{cls.table}` {'WHERE'+' AND'.join(f' `{col}`=%({col})s' for col in data.keys()) if data else ''} {config if config else ''} LIMIT 1"
         result = connectToMySQL(db).query_db(query,data)
         if result:
             result = cls(**result[0])
-        delattr(cls,"config")
         return result
 #-------------------Update---------------------#
     @classmethod
@@ -287,7 +287,6 @@ class MtM:
         -------
             None if successful or False if query failed
         """
-        print(items)
         query = f"DELETE FROM `{self.middle}` WHERE `{self.left.table}_id`={self.left.id} AND `{self.right.table}_id` IN ({', '.join(str(item.id) for item in items)})"
         return connectToMySQL(db).query_db(query)
 
